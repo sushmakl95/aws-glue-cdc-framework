@@ -11,7 +11,7 @@ Adding a new CDC'd table = adding a new TableContract entry here.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Literal
 
 SinkTarget = Literal["redshift", "postgres", "opensearch"]

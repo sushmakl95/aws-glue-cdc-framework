@@ -44,7 +44,7 @@ class MetricsEmitter:
                     }
                 ],
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             # Never fail a job just because metrics couldn't send
             log.warning("metric_emit_failed", metric=metric_name, error=str(exc))
 
@@ -54,5 +54,5 @@ class MetricsEmitter:
             for chunk_start in range(0, len(data), 20):
                 chunk = data[chunk_start : chunk_start + 20]
                 self.client.put_metric_data(Namespace=self.namespace, MetricData=chunk)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             log.warning("metric_batch_emit_failed", error=str(exc))

@@ -153,7 +153,7 @@ class RedshiftSink(Sink):
             WHERE {pk_join.replace('t.', f'{target}.')}
               AND {target}.is_current = TRUE
               AND MD5({attr_concat.replace('COALESCE', f'COALESCE({target}.')}) <> MD5(s.{attr_concat})
-            """  # noqa: E501 -- SCD2 SQL is inherently long
+            """
         )
         # 2. Insert new versions for changed or new PKs
         cur.execute(
@@ -165,7 +165,7 @@ class RedshiftSink(Sink):
                 ON {pk_join} AND t.is_current = TRUE
             WHERE t.{contract.primary_keys[0]} IS NULL
                OR MD5({attr_concat.replace('s.', 's.')}) <> MD5({attr_concat.replace('s.', 't.')})
-            """  # noqa: E501
+            """
         )
 
     # -------------------------------------------------------------------------
