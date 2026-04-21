@@ -1,0 +1,130 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aws-glue-cdc-framework"
+version = "1.0.0"
+description = "Production-grade CDC framework: MySQL → Debezium → Kinesis → AWS Glue → Redshift/Postgres/OpenSearch"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [
+    { name = "Sushma K L", email = "sushmakl95@gmail.com" },
+]
+keywords = ["aws", "glue", "cdc", "debezium", "kinesis", "redshift", "data-engineering"]
+
+dependencies = [
+    "pyspark==3.5.1",
+    "boto3>=1.34.0",
+    "psycopg2-binary>=2.9.9",
+    "redshift-connector>=2.1.1",
+    "opensearch-py>=2.4.0",
+    "pyyaml>=6.0.1",
+    "pydantic>=2.6.0",
+    "structlog>=24.1.0",
+    "click>=8.1.7",
+    "faker>=24.0.0",
+    "sqlalchemy>=2.0.0",
+    "pymysql>=1.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=5.0.0",
+    "moto[all]>=5.0.0",
+    "ruff>=0.4.0",
+    "mypy>=1.9.0",
+    "bandit[toml]>=1.7.8",
+    "detect-secrets>=1.5.0",
+    "pre-commit>=3.7.0",
+    "chispa>=0.10.1",
+    "types-PyYAML",
+    "localstack-client>=2.5",
+]
+
+[project.scripts]
+cdc-glue = "src.cli:cli"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+
+# --------------------------------------------------------------------------
+# Ruff — same config proven on Repo #1
+# --------------------------------------------------------------------------
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+extend-exclude = [
+    "notebooks/*",
+    "simulators/*",
+    "src/glue_jobs/*",  # Glue jobs run in Glue runtime with specific globals
+]
+
+[tool.ruff.lint]
+select = [
+    "E", "W", "F", "I", "B", "C4", "UP", "RUF",
+]
+ignore = [
+    "E501",    # long lines in SQL strings / docstrings
+    "N812",    # `from pyspark.sql import functions as F` PySpark standard
+    "S608",    # SQL "injection" false positives on internal identifiers
+    "RUF022",  # don't force __all__ alphabetical ordering
+    "UP042",   # StrEnum compat issues
+    "B008",    # function calls in defaults (Click/FastAPI)
+    "RUF012",  # mutable class attrs in dataclasses
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S", "RUF059", "B"]
+"scripts/*" = ["S603", "S607"]
+"**/__init__.py" = ["F401"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+
+# --------------------------------------------------------------------------
+# mypy
+# --------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = false
+warn_unused_configs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
+exclude = [
+    "src/glue_jobs/",
+    "tests/",
+    "notebooks/",
+    "simulators/",
+    "scripts/",
+]
+
+# --------------------------------------------------------------------------
+# pytest
+# --------------------------------------------------------------------------
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra -q --strict-markers"
+testpaths = ["tests"]
+markers = [
+    "unit: fast unit tests",
+    "integration: integration tests requiring spark",
+    "aws: tests that hit real AWS (skip in CI)",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["src"]
+omit = ["*/tests/*", "*/glue_jobs/*"]
+
+# --------------------------------------------------------------------------
+# bandit
+# --------------------------------------------------------------------------
+[tool.bandit]
+exclude_dirs = ["tests", "src/glue_jobs", "simulators"]
+skips = ["B101", "B608"]

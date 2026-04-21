@@ -1,0 +1,53 @@
+name: Deploy (Manual Only)
+
+# Manual dispatch only — requires AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
+# repository secrets. Do NOT run this without reading docs/COST_ANALYSIS.md first.
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Deployment target environment"
+        required: true
+        default: "dev"
+        type: choice
+        options: [dev, staging, prod]
+      action:
+        description: "Terraform action"
+        required: true
+        default: "plan"
+        type: choice
+        options: [plan, apply, destroy]
+
+jobs:
+  terraform:
+    name: Terraform ${{ github.event.inputs.action }} (${{ github.event.inputs.target }})
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.target }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-south-1
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.7.0"
+
+      - name: Terraform init
+        run: terraform -chdir=infra/terraform init -backend-config=envs/${{ github.event.inputs.target }}.backend.hcl
+
+      - name: Terraform plan
+        if: github.event.inputs.action == 'plan'
+        run: terraform -chdir=infra/terraform plan -var-file=envs/${{ github.event.inputs.target }}.tfvars
+
+      - name: Terraform apply
+        if: github.event.inputs.action == 'apply'
+        run: terraform -chdir=infra/terraform apply -var-file=envs/${{ github.event.inputs.target }}.tfvars -auto-approve
+
+      - name: Terraform destroy
+        if: github.event.inputs.action == 'destroy'
+        run: terraform -chdir=infra/terraform destroy -var-file=envs/${{ github.event.inputs.target }}.tfvars -auto-approve

@@ -1,0 +1,5 @@
+bucket         = "cdc-framework-tfstate-dev"
+key            = "aws-glue-cdc-framework/terraform.tfstate"
+region         = "ap-south-1"
+dynamodb_table = "cdc-framework-tfstate-lock-dev"
+encrypt        = true

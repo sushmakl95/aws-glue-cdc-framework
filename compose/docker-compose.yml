@@ -1,0 +1,95 @@
+# Optional local CDC stack — real Debezium against real MySQL.
+# Default dev path uses simulators/debezium instead (no Docker required).
+# Bring up with:   docker compose -f compose/docker-compose.yml up -d
+# Tear down with:  docker compose -f compose/docker-compose.yml down -v
+
+version: "3.8"
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: cdc-mysql
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: debezium
+      MYSQL_DATABASE: sales
+      MYSQL_USER: debezium
+      MYSQL_PASSWORD: dbz
+    command:
+      - --server-id=223344
+      - --log-bin=mysql-bin
+      - --binlog-format=ROW
+      - --binlog-row-image=FULL
+      - --expire-logs-days=1
+      - --gtid-mode=ON
+      - --enforce-gtid-consistency=ON
+    volumes:
+      - ./mysql-init:/docker-entrypoint-initdb.d:ro
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pdebezium"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: cdc-zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: cdc-kafka
+    ports:
+      - "9092:9092"
+    depends_on: [zookeeper]
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+
+  connect:
+    image: debezium/connect:2.5
+    container_name: cdc-connect
+    ports:
+      - "8083:8083"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    environment:
+      BOOTSTRAP_SERVERS: kafka:29092
+      GROUP_ID: "1"
+      CONFIG_STORAGE_TOPIC: connect_configs
+      OFFSET_STORAGE_TOPIC: connect_offsets
+      STATUS_STORAGE_TOPIC: connect_statuses
+      KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      KEY_CONVERTER_SCHEMAS_ENABLE: "false"
+      VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
+
+  # Optional Kafka UI (accessible at http://localhost:8080)
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: cdc-kafka-ui
+    ports:
+      - "8080:8080"
+    depends_on: [kafka]
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_NAME: connect
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_ADDRESS: http://connect:8083
+
+volumes:
+  mysql_data:

@@ -1,0 +1,31 @@
+environment: prod
+aws_region: ap-south-1
+metrics_namespace: CDC/Glue
+idempotency_table: cdc-glue-idempotency-prod
+
+enabled_sinks:
+  - redshift
+  - postgres
+  - opensearch
+
+sinks:
+  redshift:
+    secret_id: cdc-glue/prod/redshift
+    database: analytics
+    schema: cdc
+    staging_s3_path: s3://${STAGING_BUCKET}/redshift-staging
+    iam_role_arn: ${REDSHIFT_IAM_ROLE_ARN}
+
+  postgres:
+    secret_id: cdc-glue/prod/postgres
+    database: operational
+    schema: cdc
+
+  opensearch:
+    secret_id: cdc-glue/prod/opensearch
+    endpoint: ${OPENSEARCH_ENDPOINT}
+    index_prefix: cdc
+
+logging:
+  level: INFO
+  format: json

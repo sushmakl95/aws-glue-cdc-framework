@@ -1,0 +1,31 @@
+environment: local
+aws_region: ap-south-1
+metrics_namespace: CDC/Glue/Local
+idempotency_table: cdc-idempotency-local
+
+enabled_sinks:
+  # Local dev only — point sinks at Docker containers if you're running the compose stack.
+  # Otherwise leave empty and use the simulator to test the framework end-to-end.
+  []
+
+sinks:
+  redshift:
+    secret_id: cdc/local/redshift
+    database: analytics
+    schema: public
+    staging_s3_path: s3://local-bucket/staging
+    iam_role_arn: arn:aws:iam::123456789012:role/local-redshift
+
+  postgres:
+    secret_id: cdc/local/postgres
+    database: operational
+    schema: public
+
+  opensearch:
+    secret_id: cdc/local/opensearch
+    endpoint: localhost
+    index_prefix: cdc
+
+logging:
+  level: DEBUG
+  format: console

@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Venvs
+.venv/
+venv/
+env/
+
+# Tests
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Spark
+spark-warehouse/
+metastore_db/
+derby.log
+
+# Data (never commit)
+data/cdc_events/*.json
+data/cdc_events/**/*.json
+data/mysql_seed/*.sql.out
+*.parquet
+
+# Terraform
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+.terraform/
+.terraform.lock.hcl
+
+# Secrets
+.env
+.env.*
+!.env.example
+*.pem
+credentials*.json
+
+# Docker
+compose/.data/
+
+# Logs
+*.log
+logs/
+
+# OS
+Thumbs.db
