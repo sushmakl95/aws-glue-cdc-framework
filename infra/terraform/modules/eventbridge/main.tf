@@ -10,9 +10,9 @@ resource "aws_cloudwatch_event_target" "schedule_sfn" {
   arn      = var.state_machine_arn
   role_arn = var.eventbridge_role_arn
   input = jsonencode({
-    batch_id    = "$.id"
-    raw_prefix  = ""
-    trigger     = "scheduled"
+    batch_id   = "$.id"
+    raw_prefix = ""
+    trigger    = "scheduled"
   })
 }
 

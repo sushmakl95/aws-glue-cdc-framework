@@ -54,10 +54,10 @@ module "secrets" {
 }
 
 module "monitoring" {
-  source            = "./modules/monitoring"
-  project_prefix    = var.project_prefix
-  environment       = var.environment
-  alert_email       = var.alert_email
+  source         = "./modules/monitoring"
+  project_prefix = var.project_prefix
+  environment    = var.environment
+  alert_email    = var.alert_email
 }
 
 module "iam" {
@@ -73,15 +73,17 @@ module "iam" {
 }
 
 module "glue" {
-  source            = "./modules/glue"
-  project_prefix    = var.project_prefix
-  environment       = var.environment
-  vpc_id            = module.vpc.vpc_id
-  subnet_ids        = module.vpc.private_subnet_ids
-  role_arn          = module.iam.glue_role_arn
-  scripts_bucket    = module.s3.scripts_bucket
-  worker_type       = var.glue_worker_type
-  number_of_workers = var.glue_num_workers
+  source                   = "./modules/glue"
+  project_prefix           = var.project_prefix
+  environment              = var.environment
+  vpc_id                   = module.vpc.vpc_id
+  subnet_ids               = module.vpc.private_subnet_ids
+  role_arn                 = module.iam.glue_role_arn
+  scripts_bucket           = module.s3.scripts_bucket
+  worker_type              = var.glue_worker_type
+  number_of_workers        = var.glue_num_workers
+  iceberg_warehouse_bucket = module.s3.iceberg_bucket
+  openlineage_url          = var.openlineage_url
 }
 
 module "redshift" {

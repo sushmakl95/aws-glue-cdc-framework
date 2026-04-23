@@ -38,12 +38,12 @@ resource "aws_redshift_cluster" "this" {
   cluster_type    = "single-node"
   number_of_nodes = 1
 
-  cluster_subnet_group_name  = aws_redshift_subnet_group.this.name
-  vpc_security_group_ids     = [aws_security_group.redshift.id]
-  iam_roles                  = [var.iam_role_arn]
-  encrypted                  = true
-  publicly_accessible        = false
-  skip_final_snapshot        = true
+  cluster_subnet_group_name = aws_redshift_subnet_group.this.name
+  vpc_security_group_ids    = [aws_security_group.redshift.id]
+  iam_roles                 = [var.iam_role_arn]
+  encrypted                 = true
+  publicly_accessible       = false
+  skip_final_snapshot       = true
 
   # Cost safety: auto-pause in dev environments
   enhanced_vpc_routing = true

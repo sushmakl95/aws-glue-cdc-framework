@@ -13,9 +13,9 @@ resource "aws_sfn_state_machine" "cdc" {
         Parameters = {
           JobName = var.glue_job_name
           Arguments = {
-            "--batch_id.$"     = "$.batch_id"
-            "--raw_s3_path.$"  = "$.raw_prefix"
-            "--config_path"    = var.config_s3_path
+            "--batch_id.$"    = "$.batch_id"
+            "--raw_s3_path.$" = "$.raw_prefix"
+            "--config_path"   = var.config_s3_path
           }
         }
         Retry = [{
@@ -35,8 +35,8 @@ resource "aws_sfn_state_machine" "cdc" {
         Type     = "Task"
         Resource = "arn:aws:states:::sns:publish"
         Parameters = {
-          TopicArn = var.sns_topic_arn
-          Subject  = "[CDC] Pipeline SUCCEEDED"
+          TopicArn    = var.sns_topic_arn
+          Subject     = "[CDC] Pipeline SUCCEEDED"
           "Message.$" = "$"
         }
         End = true
@@ -45,8 +45,8 @@ resource "aws_sfn_state_machine" "cdc" {
         Type     = "Task"
         Resource = "arn:aws:states:::sns:publish"
         Parameters = {
-          TopicArn = var.sns_topic_arn
-          Subject  = "[CDC] Pipeline FAILED"
+          TopicArn    = var.sns_topic_arn
+          Subject     = "[CDC] Pipeline FAILED"
           "Message.$" = "$.error"
         }
         Next = "FailState"

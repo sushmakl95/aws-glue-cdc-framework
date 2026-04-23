@@ -38,11 +38,11 @@ data "aws_subnet" "first" {
 resource "aws_glue_job" "cdc" {
   name              = "${var.project_prefix}-cdc-${var.environment}"
   role_arn          = var.role_arn
-  glue_version      = "4.0"
+  glue_version      = "5.0"
   worker_type       = var.worker_type
   number_of_workers = var.number_of_workers
   timeout           = 60
-  max_retries       = 0  # Step Functions retries — no double-retry
+  max_retries       = 0 # Step Functions retries — no double-retry
 
   command {
     script_location = "s3://${var.scripts_bucket}/glue/cdc_to_sinks.py"
@@ -56,7 +56,21 @@ resource "aws_glue_job" "cdc" {
     "--enable-glue-datacatalog"          = "true"
     "--enable-job-insights"              = "true"
     "--enable-auto-scaling"              = "true"
-    "--extra-py-files"                   = "s3://${var.scripts_bucket}/glue/src.zip"
+    # Glue 5.0 native Apache Iceberg sink (bronze S3 landing + silver catalog)
+    "--datalake-formats" = "iceberg"
+    "--conf" = join(" --conf ", [
+      "spark.sql.extensions=org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions",
+      "spark.sql.catalog.glue_catalog=org.apache.iceberg.spark.SparkCatalog",
+      "spark.sql.catalog.glue_catalog.catalog-impl=org.apache.iceberg.aws.glue.GlueCatalog",
+      "spark.sql.catalog.glue_catalog.io-impl=org.apache.iceberg.aws.s3.S3FileIO",
+      "spark.sql.catalog.glue_catalog.warehouse=s3://${var.iceberg_warehouse_bucket}/",
+    ])
+    # OpenLineage emitter so lineage events flow to Marquez / DataHub
+    "--user-jars-first" = "true"
+    "--extra-jars"      = "s3://${var.scripts_bucket}/jars/openlineage-spark.jar"
+    "--conf2"           = "spark.extraListeners=io.openlineage.spark.agent.OpenLineageSparkListener"
+    "--openlineage.url" = var.openlineage_url
+    "--extra-py-files"  = "s3://${var.scripts_bucket}/glue/src.zip"
     "--additional-python-modules" = join(",", [
       "boto3==1.34.*",
       "psycopg2-binary==2.9.*",
@@ -64,6 +78,8 @@ resource "aws_glue_job" "cdc" {
       "opensearch-py==2.4.*",
       "structlog==24.1.*",
       "pydantic==2.6.*",
+      "pyiceberg==0.7.*",
+      "openlineage-integration-common==1.16.*",
     ])
     "--TempDir" = "s3://${var.scripts_bucket}/glue/tmp/"
   }

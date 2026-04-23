@@ -50,3 +50,9 @@ variable "enable_opensearch" {
   type    = bool
   default = false
 }
+
+variable "openlineage_url" {
+  type        = string
+  description = "Receiver endpoint for OpenLineage events emitted by Glue 5.0 jobs"
+  default     = "http://marquez.internal:5000/api/v1/lineage"
+}

@@ -2,26 +2,98 @@
 
 ## Overview
 
-This project implements a production-grade **Change Data Capture (CDC)** pipeline on AWS. The architecture follows the standard pattern used in enterprise data platforms: Debezium captures binlog changes from MySQL, Kinesis transports them, S3 durably stores raw events, AWS Glue processes them, and multiple sinks receive the output in parallel.
+This project implements a production-grade **Change Data Capture (CDC)** pipeline on AWS. Debezium captures binlog changes from MySQL, Kinesis transports them, S3 durably stores raw events, **AWS Glue 5.0** (PySpark) processes them with native **Apache Iceberg** sink, and multiple sinks receive the output in parallel. **OpenLineage** events stream into Marquez / DataHub for end-to-end lineage.
 
-```
-MySQL binlog → Debezium → Kinesis → Firehose → S3 raw
-                                                  │
-                              ┌───────────────────┴──────────────────┐
-                              │    AWS Glue (PySpark)                │
-                              │  parse → DQ → route → fanout         │
-                              └──┬────────────┬────────────┬─────────┘
-                                 ▼            ▼            ▼
-                           ┌─────────┐  ┌──────────┐  ┌──────────┐
-                           │Redshift │  │ Postgres │  │OpenSearch│
-                           │ (SCD2)  │  │ (upsert) │  │ (index)  │
-                           └─────────┘  └──────────┘  └──────────┘
+```mermaid
+flowchart LR
+    subgraph Source["🗄️ Source"]
+        MY[(MySQL<br/>binlog)]
+    end
 
-     orchestrated by Step Functions  |  scheduled by EventBridge
-     credentials in Secrets Manager  |  metrics in CloudWatch
+    subgraph Capture["🌀 Capture"]
+        DBZ[Debezium]
+        KDS[Kinesis Data Stream]
+        KFH[Kinesis Firehose]
+        S3R[(S3 raw<br/>cdc/raw/)]
+    end
+
+    subgraph Process["⚙️ Glue 5.0 (PySpark 3.5.2)"]
+        GP[parse → validate → route]
+        ICE[(S3 Iceberg<br/>silver.cdc_events)]
+    end
+
+    subgraph Sinks["🎯 Sinks"]
+        RS[(Redshift<br/>SCD2)]
+        PG[(Postgres<br/>upsert)]
+        OS[(OpenSearch<br/>index)]
+    end
+
+    subgraph Ops["🎼 Orchestration"]
+        SFN[Step Functions]
+        EB[EventBridge<br/>cron]
+        SM[Secrets Manager]
+        CW[CloudWatch]
+    end
+
+    subgraph Gov["📒 Lineage"]
+        OL[OpenLineage emitter]
+        MQ[Marquez / DataHub]
+    end
+
+    MY --> DBZ --> KDS --> KFH --> S3R --> GP
+    GP --> ICE
+    GP --> RS
+    GP --> PG
+    GP --> OS
+    EB --> SFN --> GP
+    SM -. creds .-> GP
+    GP -. metrics .-> CW
+    GP -. lineage .-> OL --> MQ
 ```
 
 ## Design Decisions
+
+### End-to-end CDC sequence (one Glue batch)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor APP as OLTP App
+    participant MY as MySQL
+    participant DBZ as Debezium
+    participant KDS as Kinesis Stream
+    participant KFH as Firehose
+    participant S3 as S3 raw
+    participant EB as EventBridge
+    participant SFN as Step Functions
+    participant GL as Glue 5.0 Job
+    participant ICE as Iceberg silver
+    participant RS as Redshift
+    participant PG as Postgres
+    participant OS as OpenSearch
+    participant OL as OpenLineage
+    participant MQ as Marquez
+
+    APP->>MY: INSERT / UPDATE / DELETE
+    MY->>DBZ: binlog entries
+    DBZ->>KDS: publish envelope (before, after, op, ts_ms)
+    KDS->>KFH: buffered delivery
+    KFH->>S3: write cdc/raw/yyyy=…/mm=…/ (parquet)
+    EB->>SFN: every 15 minutes
+    SFN->>GL: StartJobRun (batch_id)
+    GL->>S3: read parquet (Job Bookmark)
+    GL->>GL: parse + validate + route
+    par Glue 5.0 Iceberg write
+        GL->>ICE: INSERT / MERGE INTO silver.cdc_events
+    and SCD2 fan-out
+        GL->>RS: COPY via manifest, MERGE SCD2
+        GL->>PG: UPSERT on primary key
+        GL->>OS: _bulk index
+    end
+    GL->>OL: emit InputDatasets (S3 raw, Iceberg) + OutputDatasets
+    OL->>MQ: POST /api/v1/lineage
+    GL-->>SFN: job summary
+```
 
 ### Why Debezium (binlog CDC) instead of JDBC polling?
 
